@@ -83,7 +83,7 @@ app.use('/submit', express.static(path.join(__dirname, 'public')));
 // The frontend app.js reads window.APP_CONFIG.gatewayBase to route all
 // API calls through Kong instead of hard-coding a base URL.
 // ─────────────────────────────────────────────────────────────────────────────
-app.get('/config.js', (_req, res) => {
+app.get(['/config.js', '/submit/config.js'], (_req, res) => {
   const config = {
     gatewayBase:  process.env.PUBLIC_GATEWAY_BASE  || '',
     azureBase:    process.env.PUBLIC_AZURE_BASE     || '',

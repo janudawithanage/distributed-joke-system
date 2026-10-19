@@ -40,7 +40,7 @@ services:
       - mysql_data:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "3306:3306"
+      - "3307:3306"
     networks:
       - jokes_network
     healthcheck:
@@ -120,7 +120,7 @@ services:
       PUBLIC_GATEWAY_BASE: ${PUBLIC_GATEWAY_BASE:-http://localhost:8000}
       PORT:        4000
     ports:
-      - "3000:4000"
+      - "3100:4000"
     depends_on:
       mysql:
         condition: service_healthy

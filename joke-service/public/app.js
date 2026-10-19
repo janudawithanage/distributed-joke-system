@@ -1,235 +1,212 @@
 'use strict';
 
-const cfg = window.APP_CONFIG || {};
-const preferGateway = cfg.gatewayBase || cfg.azureBase || cfg.localBase || '';
-const defaultBase   = (preferGateway || window.location.origin || '').replace(/\/$/, '');
+const { request, icon, toast } = window.JokeUI;
+const state = { type: 'any', busy: false, served: 0, sequence: 0, cooldown: 0, cooldownTimer: null };
+const $ = id => document.getElementById(id);
+const categoryLabel = name => name.replace(/(^|[-\s])\w/g, letter => letter.toUpperCase()).replace(/-/g, ' ');
 
-const bases = {
-  joke:      (cfg.jokeServiceBase || defaultBase).replace(/\/$/, ''),
-  submit:    (cfg.submitServiceBase || defaultBase).replace(/\/$/, ''),
-  moderate:  (cfg.moderateServiceBase || defaultBase).replace(/\/$/, ''),
-  gateway:   defaultBase
-};
-
-const state = {
-  cardCounter: 0,
-  jokesServed: 0,
-  types: []
-};
-
-// Tracks the auto-dismiss timer for the homepage inline submit alert.
-let _homeSubmitTimer = null;
-
-function withBase(base, path) {
-  if (!path.startsWith('/')) path = `/${path}`;
-  return `${base}${path}`;
+function setButtonLabel(button, label) {
+  button.querySelector('span').textContent = label;
 }
 
-/* ── Load joke types from the API (gateway-first) ─────────── */
+function setCategory(type) {
+  state.type = type;
+  $('typeSelect').value = type;
+  document.querySelectorAll('[data-type]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.type === type));
+  });
+}
+
 async function loadTypes() {
   try {
-    const res = await fetch(withBase(bases.gateway, '/types'));
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const types = await res.json();
-    if (!Array.isArray(types)) throw new Error('unexpected response');
-    state.types = types;
-
-    const typeSelect   = document.getElementById('typeSelect');
-    const submitSelect = document.getElementById('submit-type');
-
-    typeSelect.innerHTML = '<option value="any">Any type</option>';
-    submitSelect.innerHTML = '<option value="">Select type</option>';
-
-    types.forEach(t => {
-      const label = t.name.charAt(0).toUpperCase() + t.name.slice(1);
-      const o1 = document.createElement('option');
-      o1.value = t.name; o1.textContent = label; typeSelect.appendChild(o1);
-      const o2 = document.createElement('option');
-      o2.value = t.name; o2.textContent = label; submitSelect.appendChild(o2);
+    const types = await request('/types');
+    if (!Array.isArray(types)) throw new Error('The category list is unavailable.');
+    $('metric-types').textContent = types.length;
+    const chips = $('category-chips');
+    const select = $('typeSelect');
+    chips.replaceChildren();
+    select.replaceChildren();
+    [{ name: 'any' }, ...types].forEach(({ name }) => {
+      const option = new Option(name === 'any' ? 'All jokes' : categoryLabel(name), name);
+      select.add(option);
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.dataset.type = name;
+      chip.textContent = name === 'any' ? 'All jokes' : categoryLabel(name);
+      chip.setAttribute('aria-pressed', String(name === state.type));
+      chip.addEventListener('click', () => {
+        if (state.busy || Date.now() < state.cooldown || name === state.type) return;
+        setCategory(name);
+        getJokes();
+      });
+      chips.append(chip);
     });
-
-    document.getElementById('metric-types').textContent = types.length;
-  } catch (err) {
-    console.warn('[home] failed to load types', err);
-    document.getElementById('metric-types').textContent = '—';
+    if (![...select.options].some(option => option.value === state.type)) setCategory('any');
+    else select.value = state.type;
+  } catch (_) {
+    $('metric-types').textContent = '—';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'chip';
+    retry.textContent = 'Retry categories';
+    retry.addEventListener('click', async () => { retry.disabled = true; await loadTypes(); });
+    $('category-chips').querySelector('[data-retry]')?.remove();
+    retry.dataset.retry = 'true';
+    $('category-chips').append(retry);
   }
 }
 
-/* ── Joke card builder with delayed punchline ─────────────── */
-function createJokeCard(joke) {
-  const id   = ++state.cardCounter;
-  const card = document.createElement('div');
-  card.className = 'joke-card';
-
-  card.innerHTML = `
-    <span class="type-badge">${escapeHtml(joke.type || 'general')}</span>
-    <p class="setup">${escapeHtml(joke.setup)}</p>
-    <p class="timer" id="timer-${id}">Punchline reveals in 3s…</p>
-    <p class="punchline" id="punchline-${id}">💥 ${escapeHtml(joke.punchline)}</p>
-  `;
-
-  let remaining = 3;
-  const interval = setInterval(() => {
-    remaining--;
-    const el = document.getElementById(`timer-${id}`);
-    if (el && remaining > 0) {
-      el.textContent = `Punchline reveals in ${remaining}s…`;
+function createJokeCard(joke, index) {
+  const article = document.createElement('article');
+  article.className = 'joke-card';
+  const id = ++state.sequence;
+  article.innerHTML = `
+    <div class="joke-card-top"><span class="type-badge"></span><span class="joke-number"></span></div>
+    <h3 class="setup"></h3>
+    <p class="punchline" id="punchline-${id}" hidden></p>
+    <div class="joke-card-bottom">
+      <button class="reveal-btn" type="button" aria-expanded="false" aria-controls="punchline-${id}"><span>Reveal punchline</span>${icon('arrow')}</button>
+      <button class="icon-btn copy-btn" type="button" aria-label="Copy joke to clipboard">${icon('copy')}</button>
+    </div>`;
+  article.querySelector('.type-badge').textContent = categoryLabel(joke.type || 'general');
+  article.querySelector('.joke-number').textContent = String(index + 1).padStart(2, '0');
+  article.querySelector('.setup').textContent = joke.setup;
+  const punchline = article.querySelector('.punchline');
+  punchline.textContent = joke.punchline;
+  const reveal = article.querySelector('.reveal-btn');
+  reveal.addEventListener('click', () => {
+    const expanded = reveal.getAttribute('aria-expanded') !== 'true';
+    reveal.setAttribute('aria-expanded', String(expanded));
+    reveal.querySelector('span').textContent = expanded ? 'Hide punchline' : 'Reveal punchline';
+    punchline.hidden = !expanded;
+  });
+  article.querySelector('.copy-btn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(`${joke.setup}\n\n${joke.punchline}`);
+      toast('Joke copied. Pass the good mood on.');
+    } catch (_) {
+      toast('Copy is unavailable. You can select the joke text to share it.');
     }
-  }, 1000);
-
-  setTimeout(() => {
-    clearInterval(interval);
-    const timer = document.getElementById(`timer-${id}`);
-    const punch = document.getElementById(`punchline-${id}`);
-    if (timer) timer.remove();
-    if (punch) punch.classList.add('revealed');
-  }, 3000);
-
-  return card;
+  });
+  return article;
 }
 
-/* ── Fetch and display jokes ─────────────────────────────── */
+function showBrowseError(message, rateLimited = false) {
+  let notice = $('browse-error');
+  if (!notice) {
+    notice = document.createElement('div');
+    notice.id = 'browse-error';
+    notice.className = 'notice notice-error';
+    notice.setAttribute('role', 'alert');
+    $('jokesContainer').before(notice);
+  }
+  notice.textContent = message;
+  notice.hidden = false;
+  if (!$('jokesContainer').querySelector('.joke-card:not(.skeleton)')) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    const title = document.createElement('h3');
+    title.textContent = rateLimited ? 'A little pause for the punchline.' : 'The laughs are taking a moment.';
+    const description = document.createElement('p');
+    description.textContent = rateLimited
+      ? 'You can still reveal and share the opening act above. Fresh jokes will be ready shortly.'
+      : 'Check your connection, then shuffle again. We’ll be right here.';
+    empty.append(title, description);
+    $('jokesContainer').replaceChildren(empty);
+  }
+}
+
+function startCooldown(seconds) {
+  clearInterval(state.cooldownTimer);
+  state.cooldown = Date.now() + seconds * 1000;
+  const update = () => {
+    const remaining = Math.max(0, Math.ceil((state.cooldown - Date.now()) / 1000));
+    $('getJokeBtn').disabled = remaining > 0 || state.busy;
+    document.querySelectorAll('[data-type]').forEach(button => { button.disabled = remaining > 0 || state.busy; });
+    setButtonLabel($('getJokeBtn'), remaining > 0 ? `Try in ${remaining}s` : 'Shuffle jokes');
+    if (!remaining) clearInterval(state.cooldownTimer);
+  };
+  update();
+  state.cooldownTimer = setInterval(update, 1000);
+}
+
 async function getJokes() {
-  const type  = document.getElementById('typeSelect').value;
-  const count = Math.max(1, parseInt(document.getElementById('countInput').value, 10) || 1);
-  const box   = document.getElementById('jokesContainer');
-  const btn   = document.getElementById('getJokeBtn');
-
-  btn.disabled = true;
-  btn.textContent = 'Fetching…';
-  box.innerHTML = '<p style="color:var(--muted);">Loading curated jokes…</p>';
-
+  if (state.busy || Date.now() < state.cooldown) return;
+  const input = $('countInput');
+  if (!input.reportValidity()) return;
+  const count = Math.min(20, Math.max(1, Number(input.value) || 3));
+  input.value = count;
+  state.busy = true;
+  document.querySelectorAll('[data-type]').forEach(button => { button.disabled = true; });
+  $('getJokeBtn').disabled = true;
+  setButtonLabel($('getJokeBtn'), 'Finding laughs…');
+  $('jokesContainer').setAttribute('aria-busy', 'true');
+  $('browse-error')?.setAttribute('hidden', '');
+  $('browse-status').textContent = 'Finding your next laughs.';
   try {
-    const res = await fetch(withBase(bases.gateway, `/joke/${encodeURIComponent(type)}?count=${count}`));
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      // Kong 429 returns { message: '...' }; service errors return { error: '...' }
-      const msg = res.status === 429
-        ? (err.message || err.error || 'Rate limit exceeded — Joke API allows 5 requests/min. Please wait 60 seconds.')
-        : (err.message || err.error || 'Unable to fetch jokes. Please try again.');
-      box.innerHTML = `<p style="color:var(--danger);">⚠️ ${escapeHtml(msg)}</p>`;
+    const data = await request(`/joke/${encodeURIComponent(state.type)}?count=${count}`);
+    const jokes = (Array.isArray(data) ? data : [data]).filter(joke => joke && typeof joke.setup === 'string' && typeof joke.punchline === 'string');
+    if (!jokes.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<h3>The first laugh could be yours.</h3><p>No jokes in this category yet. Try another category or share the first one.</p>';
+      $('jokesContainer').replaceChildren(empty);
+      $('browse-status').textContent = 'No jokes in this category yet.';
       return;
     }
-
-    const data  = await res.json();
-    const jokes = Array.isArray(data) ? data : [data];
-    state.jokesServed += jokes.length;
-    document.getElementById('metric-jokes').textContent = state.jokesServed;
-
-    box.innerHTML = '';
-    jokes.forEach(j => box.appendChild(createJokeCard(j)));
-  } catch (err) {
-    box.innerHTML = '<p style="color:var(--danger);">Network error reaching Joke Service</p>';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Fetch jokes';
-  }
-}
-
-/* ── Submit from homepage (through gateway) ──────────────── */
-async function submitFromHome() {
-  // Cancel any pending auto-dismiss from a prior successful submission
-  if (_homeSubmitTimer) { clearTimeout(_homeSubmitTimer); _homeSubmitTimer = null; }
-
-  const setup     = document.getElementById('submit-setup').value.trim();
-  const punchline = document.getElementById('submit-punchline').value.trim();
-  const type      = document.getElementById('submit-type').value.trim();
-  const alertBox  = document.getElementById('submit-alert');
-  const btn       = document.getElementById('submit-btn');
-
-  if (!setup || !punchline || !type) {
-    alertBox.style.color = 'var(--danger)';
-    alertBox.textContent = 'Fill in setup, punchline, and type.';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = 'Queueing…';
-  alertBox.textContent = '';
-
-  try {
-    const res = await fetch(withBase(bases.submit, '/submit'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ setup, punchline, type })
-    });
-    const body = await res.json().catch(() => ({}));
-    if (res.ok) {
-      alertBox.style.color = 'var(--success)';
-      alertBox.textContent = '✅ Queued for human moderation. Thank you!';
-      document.getElementById('submit-setup').value = '';
-      document.getElementById('submit-punchline').value = '';
-      // Reset the type selector back to the placeholder option
-      const typeEl = document.getElementById('submit-type');
-      if (typeEl) typeEl.selectedIndex = 0;
-      // Auto-clear success message after 6 seconds
-      _homeSubmitTimer = setTimeout(() => { alertBox.textContent = ''; _homeSubmitTimer = null; }, 6000);
+    $('jokesContainer').replaceChildren(...jokes.map(createJokeCard));
+    state.served += jokes.length;
+    $('metric-jokes').textContent = state.served;
+    $('browse-status').textContent = `Showing ${jokes.length} ${state.type === 'any' ? '' : categoryLabel(state.type) + ' '}joke${jokes.length === 1 ? '' : 's'}. Reveal a punchline when you're ready.`;
+    const featured = jokes[0];
+    $('featured-setup').textContent = featured.setup;
+    $('featured-punchline').textContent = featured.punchline;
+    $('featured-punchline').hidden = true;
+    $('featured-type').textContent = `A little ${featured.type || 'general'} humor`;
+    $('feature-reveal').setAttribute('aria-expanded', 'false');
+    $('feature-reveal').innerHTML = `Reveal the punchline ${icon('arrow')}`;
+  } catch (error) {
+    if (error.status === 429) {
+      showBrowseError(`You've found plenty of laughs. Try another shuffle in ${error.retryAfter} seconds.`, true);
+      startCooldown(error.retryAfter);
     } else {
-      alertBox.style.color = 'var(--danger)';
-      alertBox.textContent = body.error || body.message || 'Submission failed.';
+      showBrowseError(error.status === 404 ? 'No jokes here yet. Try another category or share the first one.' : 'We couldn’t reach the collection. Check your connection and try shuffling again.');
     }
-  } catch (err) {
-    alertBox.style.color = 'var(--danger)';
-    alertBox.textContent = 'Network error reaching Submit Service.';
+    $('browse-status').textContent = 'Jokes could not be refreshed.';
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Queue for moderation';
+    state.busy = false;
+    $('jokesContainer').setAttribute('aria-busy', 'false');
+    if (Date.now() >= state.cooldown) {
+      document.querySelectorAll('[data-type]').forEach(button => { button.disabled = false; });
+      $('getJokeBtn').disabled = false;
+      setButtonLabel($('getJokeBtn'), 'Shuffle jokes');
+    }
   }
 }
 
-/* ── Health indicator (via gateway /health route) ────────── */
 async function loadHealth() {
-  const el = document.getElementById('health-indicator');
+  const indicator = $('health-indicator');
   try {
-    const res = await fetch(withBase(bases.gateway, '/health'));
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    if (json.status !== 'ok') throw new Error(json.status || 'non-ok status');
-    const db = (json.dbType || 'db').toUpperCase();
-    el.style.color = 'var(--success)';
-    el.textContent = `✅ Online · ${db}`;
+    const health = await request('/health');
+    if (health?.status !== 'ok') throw new Error('Unavailable');
+    indicator.innerHTML = '<span class="status-dot"></span>All good behind the scenes';
+    indicator.style.color = 'var(--green)';
   } catch (_) {
-    el.style.color = 'var(--danger)';
-    el.textContent = '❌ Unavailable';
+    indicator.innerHTML = '<span class="status-dot"></span>Connection interrupted. Try refreshing.';
+    indicator.style.color = 'var(--danger)';
   }
 }
 
-/* ── Sanitise text ───────────────────────────────────────── */
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = String(str);
-  return div.innerHTML;
-}
-
-/* ── Init ─────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
+  $('browse-form').addEventListener('submit', event => { event.preventDefault(); getJokes(); });
+  $('feature-reveal').addEventListener('click', () => {
+    const expanded = $('feature-reveal').getAttribute('aria-expanded') !== 'true';
+    $('feature-reveal').setAttribute('aria-expanded', String(expanded));
+    $('featured-punchline').hidden = !expanded;
+    $('feature-reveal').innerHTML = `${expanded ? 'Hide the punchline' : 'Reveal the punchline'} ${icon('arrow')}`;
+  });
   loadTypes();
   loadHealth();
-
-  // Rewrite nav/footer links so they route through the Kong gateway
-  // instead of the current origin (which may be the joke-service directly).
-  const gw = bases.gateway;
-  if (gw) {
-    const linkMap = {
-      'nav-submit-ui':    gw + '/submit/',
-      'nav-moderate-ui':  gw + '/moderate-ui/',
-      'nav-api-docs':     gw + '/docs',
-      'footer-api-docs':  gw + '/docs'
-    };
-    Object.entries(linkMap).forEach(([id, href]) => {
-      const el = document.getElementById(id);
-      if (el) el.href = href;
-    });
-  }
-
-  document.getElementById('getJokeBtn').addEventListener('click', getJokes);
-  document.getElementById('refresh-types').addEventListener('click', loadTypes);
-  document.getElementById('submit-btn').addEventListener('click', submitFromHome);
-
-  const cta1 = document.getElementById('cta-get-started');
-  const cta2 = document.getElementById('cta-submit');
-  cta1?.addEventListener('click', getJokes);
-  cta2?.addEventListener('click', () => {
-    document.getElementById('submit-setup').focus();
-  });
+  getJokes();
 });

@@ -1,0 +1,13 @@
+{
+  "name": "distributed-joke-system-ui",
+  "private": true,
+  "scripts": {
+    "sync:ui": "node scripts/sync-ui.mjs",
+    "test:ui": "node scripts/ui-review.mjs"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@playwright/mcp": "0.0.83"
+  }
+}

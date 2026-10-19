@@ -1,289 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <base href="/moderate-ui/" />
-  <title>Moderate · Distributed Joke Platform</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚖️</text></svg>" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg: #0a0f1d;
-      --surface: rgba(255,255,255,0.04);
-      --card: rgba(255,255,255,0.06);
-      --stroke: rgba(255,255,255,0.08);
-      --accent: #5ce1e6;
-      --approve: #7cf6c4;
-      --reject: #ff6b6b;
-      --text: #e7eefb;
-      --muted: #95a4c7;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
-      min-height: 100vh;
-      padding: 28px 16px 40px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 18px;
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      top: -180px; right: -180px;
-      width: 500px; height: 500px;
-      background: radial-gradient(circle, rgba(92,225,230,0.1) 0%, transparent 70%);
-      z-index: 0; pointer-events: none;
-    }
-
-    /* ── Header ──────────────────────────────────────────── */
-    header {
-      position: relative; z-index: 1;
-      width: 100%; max-width: 760px;
-      display: flex; justify-content: space-between; gap: 16px; align-items: center;
-      flex-wrap: wrap;
-    }
-    .header-left h1 { font-size: 32px; letter-spacing: -0.01em; }
-    .header-left h1 span { color: var(--accent); }
-    .header-left p { color: var(--muted); margin-top: 4px; font-size: 14px; }
-    .user-info {
-      display: flex; gap: 10px; align-items: center;
-      background: var(--card); border: 1px solid var(--stroke);
-      padding: 10px 14px; border-radius: 14px;
-    }
-    .user-info img { width: 32px; height: 32px; border-radius: 50%; }
-    .user-info span { font-size: 14px; }
-    .logout-btn {
-      border: 1px solid var(--stroke); background: transparent;
-      color: var(--text); padding: 6px 12px; border-radius: 10px;
-      cursor: pointer; font-family: inherit; font-size: 13px;
-      transition: border-color 0.2s;
-    }
-    .logout-btn:hover { border-color: var(--reject); color: var(--reject); }
-
-    /* ── Stats Bar ───────────────────────────────────────── */
-    .stats-bar {
-      position: relative; z-index: 1;
-      width: 100%; max-width: 760px;
-      display: flex; gap: 12px; flex-wrap: wrap;
-    }
-    .stat-pill {
-      flex: 1; min-width: 120px;
-      background: var(--card); border: 1px solid var(--stroke);
-      border-radius: 14px; padding: 12px 16px;
-      text-align: center;
-    }
-    .stat-pill .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .stat-pill .value { font-size: 22px; font-weight: 700; margin-top: 2px; }
-    .stat-pill .value.green { color: var(--approve); }
-    .stat-pill .value.red { color: var(--reject); }
-    .stat-pill .value.blue { color: var(--accent); }
-
-    /* ── Status Banner ───────────────────────────────────── */
-    #status-banner {
-      position: relative; z-index: 1;
-      max-width: 760px; width: 100%;
-      background: var(--card); border: 1px solid var(--stroke);
-      border-radius: 16px; padding: 18px 20px;
-      display: flex; align-items: center; gap: 12px; color: var(--muted);
-    }
-    .spinner {
-      width: 18px; height: 18px;
-      border: 3px solid rgba(255,255,255,0.08);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      flex-shrink: 0;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Moderation Card ─────────────────────────────────── */
-    .mod-card {
-      position: relative; z-index: 1;
-      width: 100%; max-width: 760px;
-      background: var(--card); border: 1px solid var(--stroke);
-      border-radius: 20px; padding: 24px;
-      display: none; flex-direction: column; gap: 16px;
-      animation: slideIn 0.3s ease;
-    }
-    .mod-card.visible { display: flex; }
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .mod-card .hint {
-      color: var(--muted); font-size: 13px;
-      padding: 10px 14px; background: var(--surface);
-      border-radius: 10px; border: 1px solid var(--stroke);
-    }
-
-    .field-group { display: flex; flex-direction: column; gap: 6px; }
-    .field-group label {
-      color: var(--muted); font-size: 13px;
-      text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
-    }
-    textarea, input[type="text"], select {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--stroke); color: var(--text);
-      padding: 12px 14px; border-radius: 12px;
-      font-size: 15px; font-family: inherit;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    textarea { min-height: 80px; resize: vertical; }
-    textarea:focus, input:focus, select:focus {
-      outline: none;
-      border-color: rgba(92,225,230,0.6);
-      box-shadow: 0 0 0 3px rgba(92,225,230,0.15);
-    }
-
-    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .actions button {
-      padding: 13px; border: none; border-radius: 13px;
-      font-weight: 700; font-size: 15px; font-family: inherit;
-      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .actions button:hover:not(:disabled) { transform: translateY(-2px); }
-    .actions button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .btn-approve { background: var(--approve); color: #04101a; box-shadow: 0 8px 30px rgba(124,246,196,0.2); }
-    .btn-reject { background: var(--reject); color: #fff; box-shadow: 0 8px 30px rgba(255,107,107,0.2); }
-
-    .shortcut-hint {
-      text-align: center; font-size: 12px; color: var(--muted);
-      margin-top: -4px;
-    }
-    kbd {
-      background: var(--surface); border: 1px solid var(--stroke);
-      padding: 2px 6px; border-radius: 5px; font-size: 11px; font-family: inherit;
-    }
-
-    /* ── Toast ────────────────────────────────────────────── */
-    #toast {
-      position: fixed; bottom: 20px; left: 50%;
-      transform: translateX(-50%) translateY(120px);
-      background: var(--card); border: 1px solid var(--stroke);
-      padding: 14px 20px; border-radius: 14px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-      font-size: 14px; font-weight: 500; z-index: 200;
-      transition: transform 0.3s ease;
-      max-width: 90vw;
-    }
-    #toast.show { transform: translateX(-50%) translateY(0); }
-    #toast.success { border-color: rgba(124,246,196,0.4); }
-    #toast.error { border-color: rgba(255,107,107,0.4); }
-
-    @media (max-width: 640px) {
-      header { flex-direction: column; align-items: flex-start; }
-      .header-left h1 { font-size: 26px; }
-      .actions { grid-template-columns: 1fr; }
-    }
-
-    /* ── Auth Warning Banner ─────────────────────────────── */
-    #auth-warning {
-      position: relative; z-index: 1;
-      width: 100%; max-width: 760px;
-      background: rgba(255, 165, 0, 0.08);
-      border: 1px solid rgba(255, 165, 0, 0.4);
-      border-radius: 16px; padding: 14px 18px;
-      display: none; gap: 10px; align-items: flex-start;
-    }
-    #auth-warning.visible { display: flex; }
-    #auth-warning .warn-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
-    #auth-warning strong { color: #ffaa00; font-size: 14px; display: block; margin-bottom: 4px; }
-    #auth-warning p { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f8f3">
+  <base href="/moderate-ui/">
+  <title>The moderator's desk · JokePlatform</title>
+  <meta name="description" content="Review the next submission, polish the punchline, and help keep the JokePlatform collection welcoming.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="dm-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-  <header>
-    <div class="header-left">
-      <h1>⚖️ Joke <span>Moderator</span></h1>
-      <p>Distributed Joke Platform — Moderator</p>
-    </div>
-    <div class="user-info" id="user-info" style="display:none;">
-      <img id="user-avatar" src="" alt="avatar" />
-      <span id="user-name"></span>
-      <button class="logout-btn" id="logout-btn">Logout</button>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/joke-ui/" data-route="/joke-ui/" aria-label="JokePlatform home"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="icons.svg#smile"></use></svg></span><span>Joke<span style="font-weight:400">Platform</span><span class="text-accent">.</span></span></a>
+      <nav class="desktop-nav" aria-label="Primary"><a class="nav-link" href="/joke-ui/" data-route="/joke-ui/">Browse jokes</a><a class="nav-link" href="/submit/" data-route="/submit/">Submit a joke</a><a class="nav-link" href="/moderate-ui/" data-route="/moderate-ui/" aria-current="page">Moderation</a></nav>
+      <div class="header-end"><a class="header-docs" href="/docs" data-route="/docs">API docs <svg class="icon" aria-hidden="true"><use href="icons.svg#arrow-up"></use></svg></a></div>
     </div>
   </header>
-
-  <!-- Auth security warning — shown when Auth0 is not configured.
-       The banner is hidden by default and made visible by app.js when the
-       /me endpoint returns authEnabled:false. -->
-  <div id="auth-warning">
-    <span class="warn-icon">⚠️</span>
-    <div>
-      <strong>Authentication Disabled</strong>
-      <p id="auth-warning-text"></p>
+  <nav class="mobile-nav" aria-label="Mobile"><a href="/joke-ui/" data-route="/joke-ui/"><svg class="icon" aria-hidden="true"><use href="icons.svg#smile"></use></svg><span>Browse</span></a><a href="/submit/" data-route="/submit/"><svg class="icon" aria-hidden="true"><use href="icons.svg#pen"></use></svg><span>Submit</span></a><a href="/moderate-ui/" data-route="/moderate-ui/" aria-current="page"><svg class="icon" aria-hidden="true"><use href="icons.svg#shield"></use></svg><span>Moderate</span></a></nav>
+  <main class="container" id="main" tabindex="-1">
+    <header class="page-heading moderation-heading">
+      <div><span class="eyebrow"><svg class="icon" aria-hidden="true"><use href="icons.svg#shield"></use></svg> The editor's desk</span><h1>Keep the laughs coming.</h1><p class="text-muted" style="margin-top:14px">A little care behind every good joke. Review, refine, and pass it on.</p></div>
+      <div class="user-info" id="user-info" hidden><span class="user-avatar"><span id="user-initial">M</span><img id="user-avatar" alt="" width="36" height="36" hidden></span><span id="user-name"></span><button class="logout-btn" id="logout-btn" type="button">Sign out</button></div>
+    </header>
+    <div class="notice notice-warning" id="auth-warning" hidden><svg class="icon" aria-hidden="true"><use href="icons.svg#info"></use></svg><p id="auth-warning-text"><strong>Demo mode.</strong> Sign-in is disabled in this environment. Anyone with access can review submissions.</p></div>
+    <section aria-labelledby="session-title">
+      <h2 class="sr-only" id="session-title">Your review session</h2>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-card-top"><span class="stat-label">Approved</span><svg class="icon" aria-hidden="true"><use href="icons.svg#check-circle"></use></svg></div><strong class="stat-value" id="stat-approved">0</strong></div>
+        <div class="stat-card"><div class="stat-card-top"><span class="stat-label">Rejected</span><svg class="icon" aria-hidden="true"><use href="icons.svg#close"></use></svg></div><strong class="stat-value" id="stat-rejected">0</strong></div>
+        <div class="stat-card"><div class="stat-card-top"><span class="stat-label">Total reviewed</span><svg class="icon" aria-hidden="true"><use href="icons.svg#book"></use></svg></div><strong class="stat-value" id="stat-total">0</strong></div>
+      </div>
+    </section>
+    <div class="workspace-grid">
+      <div>
+        <section class="panel review-panel" aria-labelledby="review-title">
+          <div class="review-heading"><h2 id="review-title"><svg class="icon" aria-hidden="true"><use href="icons.svg#eye"></use></svg> Up for review</h2><span class="connection" id="queue-connection"><span class="status-dot"></span><span>Connecting…</span></span></div>
+          <div class="review-empty" id="status-banner">
+            <div class="queue-illustration" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="icons.svg#smile"></use></svg></div>
+            <h3 id="status-title">Finding the next good one.</h3>
+            <p id="status-text" role="status" aria-live="polite">Connecting to the review queue…</p>
+            <a class="btn btn-secondary" id="login-link" href="/login" data-route="/login" hidden>Sign in to continue <svg class="icon" aria-hidden="true"><use href="icons.svg#arrow"></use></svg></a>
+          </div>
+          <form class="review-form" id="mod-card" novalidate hidden>
+            <div class="review-intro"><span class="type-badge">New submission</span><span>Review &amp; make it shine</span></div>
+            <div class="notice notice-error" data-error-summary tabindex="-1" role="alert" hidden></div>
+            <div class="field">
+              <div class="field-label"><label for="setup">The setup</label><span class="field-meta">Editable</span></div>
+              <textarea id="setup" name="setup" rows="3" maxlength="500" required aria-describedby="setup-error"></textarea>
+              <p class="field-error" id="setup-error" hidden></p>
+            </div>
+            <div class="field">
+              <div class="field-label"><label for="punchline">The punchline</label><span class="field-meta">Editable</span></div>
+              <textarea id="punchline" name="punchline" rows="3" maxlength="500" required aria-describedby="punchline-error"></textarea>
+              <p class="field-error" id="punchline-error" hidden></p>
+            </div>
+            <div class="field">
+              <div class="field-label"><label for="type">The category</label></div>
+              <select class="select-input" id="type" name="type" required aria-describedby="type-error"><option value="">Choose a category</option></select>
+              <p class="field-error" id="type-error" hidden></p>
+            </div>
+            <div class="notice notice-error" id="review-error" role="alert" hidden></div>
+            <div class="review-actions">
+              <button class="btn btn-primary" id="btn-approve" type="submit"><svg class="icon" aria-hidden="true"><use href="icons.svg#check"></use></svg> <span>Approve &amp; publish</span></button>
+              <button class="btn btn-danger-outline" id="btn-reject" type="button"><svg class="icon" aria-hidden="true"><use href="icons.svg#close"></use></svg> Reject joke</button>
+            </div>
+          </form>
+        </section>
+        <div class="review-controls"><span>New submissions appear automatically.</span><button class="btn btn-secondary" id="pause-btn" aria-pressed="false" type="button"><svg class="icon" aria-hidden="true"><use href="icons.svg#pause"></use></svg> Pause reviews</button></div>
+        <p class="session-note">Your counts reflect this browser session.</p>
+      </div>
+      <aside class="aside-stack moderator-aside" aria-label="Review guide">
+        <section class="panel" aria-labelledby="review-guide-title">
+          <span class="eyebrow text-accent" style="margin-bottom:14px">A little editorial care</span>
+          <h2 id="review-guide-title">What makes the cut?</h2>
+          <ul class="check-list">
+            <li><svg class="icon" aria-hidden="true"><use href="icons.svg#check"></use></svg> The setup makes sense and the punchline lands.</li>
+            <li><svg class="icon" aria-hidden="true"><use href="icons.svg#check"></use></svg> The humor is welcoming. No hate, harassment, or personal attacks.</li>
+            <li><svg class="icon" aria-hidden="true"><use href="icons.svg#check"></use></svg> Spelling and category look right. Small edits are welcome.</li>
+            <li><svg class="icon" aria-hidden="true"><use href="icons.svg#check"></use></svg> It's a fresh addition to the collection.</li>
+          </ul>
+        </section>
+        <section class="panel keyboard-hint" aria-labelledby="shortcuts-title">
+          <h2 id="shortcuts-title">Stay in your flow.</h2>
+          <div class="shortcut-list"><span>Approve a joke</span><kbd>A</kbd><span>Reject a joke</span><kbd>R</kbd><span>Approve while editing</span><span><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd></span></div>
+          <p class="field-hint" style="margin-top:18px">Single-key shortcuts pause while you're typing.</p>
+        </section>
+        <section class="guidelines"><p class="text-muted" style="font-size:.8rem">Every approved joke makes someone's day a little lighter. Thanks for being the human in the loop.</p></section>
+      </aside>
     </div>
-  </div>
+  </main>
+  <dialog id="reject-dialog" aria-labelledby="reject-title" aria-describedby="reject-description">
+    <h2 id="reject-title">Let this one go?</h2><p id="reject-description">This removes the submission from the review queue. It won't be added to the collection.</p>
+    <div class="dialog-actions"><button class="btn btn-secondary" id="cancel-reject" type="button" autofocus>Keep reviewing</button><button class="btn btn-danger" id="confirm-reject" type="button">Reject joke</button></div>
+  </dialog>
 
-  <!-- Session Stats -->
-  <div class="stats-bar">
-    <div class="stat-pill">
-      <div class="label">Approved</div>
-      <div class="value green" id="stat-approved">0</div>
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand"><a class="brand" href="/joke-ui/" data-route="/joke-ui/" aria-label="JokePlatform home"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="icons.svg#smile"></use></svg></span><span>Joke<span style="font-weight:400">Platform</span><span class="text-accent">.</span></span></a><span class="footer-note">A little wit goes a long way.</span></div>
+      <div class="footer-links"><a href="/docs" data-route="/docs">API docs</a><a href="https://github.com/janudawithanage/co3404-distributed-joke-system" target="_blank" rel="noopener noreferrer">GitHub <svg class="icon" aria-hidden="true"><use href="icons.svg#arrow-up"></use></svg></a></div>
     </div>
-    <div class="stat-pill">
-      <div class="label">Rejected</div>
-      <div class="value red" id="stat-rejected">0</div>
-    </div>
-    <div class="stat-pill">
-      <div class="label">Session</div>
-      <div class="value blue" id="stat-total">0</div>
-    </div>
-  </div>
-
-  <!-- Polling status banner -->
-  <div id="status-banner">
-    <div class="spinner"></div>
-    <span id="status-text">Connecting to moderation queue…</span>
-  </div>
-
-  <!-- Moderation form card -->
-  <div class="mod-card" id="mod-card">
-    <div class="hint">📝 Review and optionally edit the joke before approving or rejecting.</div>
-
-    <div class="field-group">
-      <label for="setup">Setup (Question)</label>
-      <textarea id="setup" rows="2" placeholder="Joke setup…"></textarea>
-    </div>
-
-    <div class="field-group">
-      <label for="punchline">Punchline (Answer)</label>
-      <textarea id="punchline" rows="2" placeholder="Joke punchline…"></textarea>
-    </div>
-
-    <div class="field-group">
-      <label for="type">Joke Type</label>
-      <select id="type">
-        <option value="">— select type —</option>
-      </select>
-    </div>
-
-    <div class="actions">
-      <button class="btn-approve" id="btn-approve">
-        ✅ Approve
-      </button>
-      <button class="btn-reject" id="btn-reject">
-        ❌ Reject
-      </button>
-    </div>
-    <div class="shortcut-hint">
-      <kbd>A</kbd> Approve · <kbd>R</kbd> Reject · <kbd>Ctrl+Enter</kbd> Approve
-    </div>
-  </div>
-
-  <div id="toast"></div>
-
+  </footer>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="common.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -99,6 +99,9 @@ Full reference with curl examples → **[API_OVERVIEW.md](API_OVERVIEW.md)**
 
 ## Testing
 
+The responsive UI and Playwright MCP checks are documented in [ui/README.md](ui/README.md).
+With the local stack and Chrome running, use `npm ci` followed by `npm run test:ui`.
+
 ```bash
 node test-flows.js   # 59 end-to-end tests against the local stack
 ```

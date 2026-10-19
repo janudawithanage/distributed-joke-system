@@ -1,221 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <base href="/submit/" />
-  <title>Submit a Joke · Distributed Joke Platform</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📤</text></svg>" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --bg: #0a0f1d;
-      --surface: rgba(255,255,255,0.04);
-      --card: rgba(255,255,255,0.06);
-      --stroke: rgba(255,255,255,0.08);
-      --accent: #5ce1e6;
-      --accent-strong: #c5ff7a;
-      --text: #e7eefb;
-      --muted: #95a4c7;
-      --success: #7cf6c4;
-      --error: #ff6b6b;
-      --radius: 16px;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 28px 16px 40px;
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      top: -180px; left: -180px;
-      width: 500px; height: 500px;
-      background: radial-gradient(circle, rgba(92,225,230,0.1) 0%, transparent 70%);
-      z-index: 0; pointer-events: none;
-    }
-
-    .page {
-      position: relative; z-index: 1;
-      width: 100%; max-width: 640px;
-      display: flex; flex-direction: column; gap: 24px;
-    }
-
-    /* ── Header ────────────────────────────────────────────── */
-    header { text-align: center; }
-    header h1 {
-      font-size: 36px; font-weight: 700; letter-spacing: -0.02em;
-    }
-    header h1 span { color: var(--accent); }
-    header p { color: var(--muted); margin-top: 8px; line-height: 1.6; font-size: 15px; }
-
-    /* ── Card ─────────────────────────────────────────────── */
-    .card {
-      background: var(--card);
-      border: 1px solid var(--stroke);
-      border-radius: 22px;
-      padding: 28px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-      display: flex; flex-direction: column; gap: 18px;
-    }
-
-    .form-group { display: flex; flex-direction: column; gap: 6px; }
-    .form-group label {
-      color: var(--muted); font-size: 13px;
-      text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
-    }
-    .char-count {
-      font-size: 12px; color: var(--muted); text-align: right; margin-top: 2px;
-    }
-    .char-count.warn { color: var(--error); }
-
-    input, textarea, select {
-      width: 100%;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--stroke);
-      color: var(--text);
-      padding: 12px 14px;
-      border-radius: 14px;
-      font-size: 16px;
-      font-family: inherit;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    textarea { min-height: 90px; resize: vertical; }
-    input:focus, textarea:focus, select:focus {
-      outline: none;
-      border-color: rgba(92,225,230,0.6);
-      box-shadow: 0 0 0 3px rgba(92,225,230,0.15);
-    }
-
-    .type-row { display: flex; gap: 10px; align-items: flex-end; }
-    .type-row input { display: none; }
-
-    /* ── Button ───────────────────────────────────────────── */
-    .btn {
-      width: 100%;
-      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-      color: #04101a;
-      border: none;
-      padding: 14px;
-      border-radius: 14px;
-      font-size: 16px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      box-shadow: 0 12px 40px rgba(92,225,230,0.25);
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 48px rgba(92,225,230,0.35); }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-    .btn .spinner {
-      width: 16px; height: 16px;
-      border: 3px solid rgba(0,0,0,0.2);
-      border-top-color: #04101a;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: none;
-    }
-    .btn.loading .spinner { display: inline-block; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Alert ────────────────────────────────────────────── */
-    .alert {
-      padding: 14px 16px;
-      border-radius: 12px;
-      border: 1px solid var(--stroke);
-      font-size: 14px;
-      display: none;
-      animation: fadeIn 0.25s ease;
-    }
-    .alert.visible { display: block; }
-    .alert-success { color: var(--success); border-color: rgba(124,246,196,0.4); background: rgba(124,246,196,0.06); }
-    .alert-error { color: var(--error); border-color: rgba(255,107,107,0.4); background: rgba(255,107,107,0.06); }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* ── Flow Indicator ──────────────────────────────────── */
-    .flow {
-      background: var(--surface);
-      border: 1px solid var(--stroke);
-      border-radius: 14px;
-      padding: 14px 18px;
-      display: flex; align-items: center; gap: 10px;
-      font-size: 13px; color: var(--muted); line-height: 1.5;
-    }
-    .flow .icon { font-size: 18px; flex-shrink: 0; }
-
-    /* ── Footer ──────────────────────────────────────────── */
-    .footer-links {
-      display: flex; gap: 16px; justify-content: center;
-      color: var(--muted); font-size: 14px;
-    }
-    .footer-links a { color: var(--accent); text-decoration: none; }
-    .footer-links a:hover { text-decoration: underline; }
-
-    @media (max-width: 640px) {
-      header h1 { font-size: 28px; }
-      .card { padding: 20px; }
-    }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f8f8f3">
+  <base href="/submit/">
+  <title>Share a little wit · JokePlatform</title>
+  <meta name="description" content="Write your best joke, preview it, and send it for a human review before it joins the collection.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="dm-sans.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="page">
-    <header>
-      <h1>Submit a <span>Joke</span></h1>
-      <p>Queue your wit for human moderation. Your joke travels through RabbitMQ to a moderator before entering the database.</p>
+
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/joke-ui/" data-route="/joke-ui/" aria-label="JokePlatform home"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="icons.svg#smile"></use></svg></span><span>Joke<span style="font-weight:400">Platform</span><span class="text-accent">.</span></span></a>
+      <nav class="desktop-nav" aria-label="Primary"><a class="nav-link" href="/joke-ui/" data-route="/joke-ui/">Browse jokes</a><a class="nav-link" href="/submit/" data-route="/submit/" aria-current="page">Submit a joke</a><a class="nav-link" href="/moderate-ui/" data-route="/moderate-ui/">Moderation</a></nav>
+      <div class="header-end"><a class="header-docs" href="/docs" data-route="/docs">API docs <svg class="icon" aria-hidden="true"><use href="icons.svg#arrow-up"></use></svg></a></div>
+    </div>
+  </header>
+  <nav class="mobile-nav" aria-label="Mobile"><a href="/joke-ui/" data-route="/joke-ui/"><svg class="icon" aria-hidden="true"><use href="icons.svg#smile"></use></svg><span>Browse</span></a><a href="/submit/" data-route="/submit/" aria-current="page"><svg class="icon" aria-hidden="true"><use href="icons.svg#pen"></use></svg><span>Submit</span></a><a href="/moderate-ui/" data-route="/moderate-ui/"><svg class="icon" aria-hidden="true"><use href="icons.svg#shield"></use></svg><span>Moderate</span></a></nav>
+  <main class="container" id="main" tabindex="-1">
+    <header class="page-heading">
+      <span class="eyebrow"><svg class="icon" aria-hidden="true"><use href="icons.svg#pen"></use></svg> Share a little wit</span>
+      <h1>Got a good one?</h1>
+      <p>Set it up. Land the punchline. Make someone's day.<br>We'll give it a human review before it joins the collection.</p>
     </header>
-
-    <div class="card">
-      <div class="form-group">
-        <label for="setup">Setup (Question)</label>
-        <textarea id="setup" rows="2" placeholder="Why did the developer go broke?" maxlength="500"></textarea>
-        <div class="char-count"><span id="setup-count">0</span>/500</div>
-      </div>
-
-      <div class="form-group">
-        <label for="punchline">Punchline (Answer)</label>
-        <textarea id="punchline" rows="2" placeholder="Because they used up all their cache!" maxlength="500"></textarea>
-        <div class="char-count"><span id="punchline-count">0</span>/500</div>
-      </div>
-
-      <div class="form-group">
-        <label>Joke Type</label>
-        <div class="type-row">
-          <select id="typeSelect" aria-label="Select joke type"></select>
-          <input id="typeCustom" type="text" placeholder="Custom type…" maxlength="50" aria-label="Custom joke type" />
+    <div class="workspace-grid">
+      <section class="panel" aria-labelledby="form-title">
+        <div id="submission-editor">
+          <div class="panel-heading"><div><h2 id="form-title">The stage is yours.</h2><p>All fields are required. A little originality goes a long way.</p></div><svg class="icon" aria-hidden="true"><use href="icons.svg#spark"></use></svg></div>
+          <form id="submit-form" novalidate>
+            <div class="notice notice-error" id="form-errors" data-error-summary tabindex="-1" role="alert" hidden></div>
+            <div class="field">
+              <div class="field-label"><label for="setup">The setup</label><span class="field-meta"><span id="setup-count">0</span> / 500</span></div>
+              <textarea id="setup" name="setup" rows="3" placeholder="Why did the developer go broke?" maxlength="500" required aria-describedby="setup-hint setup-error"></textarea>
+              <p class="field-hint" id="setup-hint">Start with a question or a situation. Set the scene.</p>
+              <p class="field-error" id="setup-error" hidden></p>
+            </div>
+            <div class="field">
+              <div class="field-label"><label for="punchline">The punchline</label><span class="field-meta"><span id="punchline-count">0</span> / 500</span></div>
+              <textarea id="punchline" name="punchline" rows="3" placeholder="Because they used up all their cache." maxlength="500" required aria-describedby="punchline-hint punchline-error"></textarea>
+              <p class="field-hint" id="punchline-hint">The twist, the wordplay, the perfectly terrible pun.</p>
+              <p class="field-error" id="punchline-error" hidden></p>
+            </div>
+            <div class="field">
+              <div class="field-label"><label for="typeSelect">The category</label></div>
+              <select class="select-input" id="typeSelect" name="type" required aria-describedby="typeSelect-error"><option value="">Loading categories…</option></select>
+              <p class="field-error" id="typeSelect-error" hidden></p>
+              <div id="custom-type-field" class="custom-type" hidden>
+                <label for="typeCustom">Your category name</label>
+                <input class="text-input" id="typeCustom" name="customType" type="text" placeholder="e.g. wordplay" maxlength="50" aria-describedby="typeCustom-hint typeCustom-error">
+                <p class="field-hint" id="typeCustom-hint">Keep it short. New categories are added after approval.</p>
+                <p class="field-error" id="typeCustom-error" hidden></p>
+              </div>
+              <p id="category-notice" class="field-hint" hidden>Categories couldn't load. You can still enter one of your own.</p>
+            </div>
+            <div class="notice notice-error" id="alertBox" role="alert" hidden></div>
+            <div class="form-footer">
+              <button class="btn btn-primary" id="submitBtn" type="submit"><span class="btn-text">Send for review</span><svg class="icon" aria-hidden="true"><use href="icons.svg#arrow"></use></svg></button>
+              <p>Good humor. Real people.<br><span class="keyboard-hint"><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Enter</kbd> to send</span></p>
+            </div>
+            <p class="draft-status" id="draft-status" role="status"></p>
+          </form>
         </div>
-      </div>
-
-      <div id="alertBox" class="alert" role="alert"></div>
-
-      <button class="btn" id="submitBtn" type="button">
-        <span class="spinner"></span>
-        <span class="btn-text">Submit to queue</span>
-      </button>
+        <div class="form-success" id="submission-success" tabindex="-1" hidden>
+          <div class="success-icon"><svg class="icon" aria-hidden="true"><use href="icons.svg#check-circle"></use></svg></div>
+          <h2>Your joke is in good hands.</h2>
+          <p>It's on its way to a human reviewer. Once approved, your joke will join the collection for everyone to enjoy.</p>
+          <div class="success-actions"><button class="btn btn-primary" type="button" id="submit-another">Share another joke <svg class="icon" aria-hidden="true"><use href="icons.svg#pen"></use></svg></button><a class="btn btn-secondary" href="/joke-ui/" data-route="/joke-ui/">Back to browsing</a></div>
+        </div>
+      </section>
+      <aside class="aside-stack" aria-label="Submission guide">
+        <section class="preview-card" aria-labelledby="preview-title">
+          <h2 id="preview-title">A sneak peek</h2>
+          <span class="type-badge" id="preview-type">Your kind of funny</span>
+          <p class="preview-setup" id="preview-setup">Your setup takes the spotlight here.</p>
+          <p class="preview-punchline" id="preview-punchline">And this is where the punchline lands.</p>
+          <p class="preview-caption">A live preview of your next crowd-pleaser.</p>
+        </section>
+        <section class="guidelines" aria-labelledby="guidelines-title">
+          <h2 id="guidelines-title">Keep the good vibes going.</h2>
+          <ul class="check-list">
+            <li><svg class="icon" aria-hidden="true"><use href="icons.svg#check"></use></svg> Make it original. Your own spin is the best spin.</li>
+            <li><svg class="icon" aria-hidden="true"><use href="icons.svg#check"></use></svg> Keep it kind. A good laugh brings people together.</li>
+            <li><svg class="icon" aria-hidden="true"><use href="icons.svg#check"></use></svg> Short and sweet usually lands the best.</li>
+          </ul>
+        </section>
+        <section class="guidelines" aria-labelledby="pipeline-title">
+          <h2 id="pipeline-title">From your mind to their smile.</h2>
+          <ol class="pipeline">
+            <li><div><strong>You write it.</strong><p>Your joke joins the review queue.</p></div></li>
+            <li><div><strong>We give it a read.</strong><p>A human makes sure it's a good fit.</p></div></li>
+            <li><div><strong>Everyone gets a laugh.</strong><p>Approved jokes join the collection.</p></div></li>
+          </ol>
+        </section>
+      </aside>
     </div>
+  </main>
 
-    <div class="flow">
-      <span class="icon">📡</span>
-      <span>Your joke → RabbitMQ "submit" queue → Human moderator → ETL → Database</span>
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand"><a class="brand" href="/joke-ui/" data-route="/joke-ui/" aria-label="JokePlatform home"><span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="icons.svg#smile"></use></svg></span><span>Joke<span style="font-weight:400">Platform</span><span class="text-accent">.</span></span></a><span class="footer-note">A little wit goes a long way.</span></div>
+      <div class="footer-links"><a href="/docs" data-route="/docs">API docs</a><a href="https://github.com/janudawithanage/co3404-distributed-joke-system" target="_blank" rel="noopener noreferrer">GitHub <svg class="icon" aria-hidden="true"><use href="icons.svg#arrow-up"></use></svg></a></div>
     </div>
-
-    <div class="footer-links">
-      <a href="/docs" target="_blank" rel="noreferrer">Swagger API Docs</a>
-      <a href="/joke-ui" target="_blank" rel="noreferrer">Homepage</a>
-      <a href="/moderate-ui" target="_blank" rel="noreferrer">Moderate</a>
-    </div>
-  </div>
-
+  </footer>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script src="config.js"></script>
+  <script src="common.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
